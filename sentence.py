@@ -9,6 +9,7 @@ class Variable(object):
     The name is merely for humans. Two Variable objects x and y are only
     considered equal when x is y.
     """
+
     def __init__(self, name):
         self.name = name
 
@@ -101,8 +102,8 @@ class Implies(Sentence):
 
 
 class Not(Sentence):
-    def __init__(self, formula):
-        self.content = formula
+    def __init__(self, sentence):
+        self.content = sentence
 
     def __repr__(self):
         return "¬" + str(self.content)
@@ -111,10 +112,22 @@ class Not(Sentence):
         if isinstance(other, Not):
             return self.content.unify(other.content)
 
+    # def cnf(self):
+    #     if isinstance(self.content, Not):
+    #         # ¬¬A = A
+    #         return self.content.content.cnf()
+    #     elif isinstance(self.content, And):
+    #         ...
+    #     else:
+    #         return self.content.cnf()
+
 
 class Predicate(Sentence):
     def __init__(self, name, *arguments):
         self.content = tuple((name,) + arguments)
+
+    def __call__(self, substitution):
+        return Predicate(*(substitution[cont] for cont in self.content))
 
     def __repr__(self):
         return str(self.content[0]) + "(" + forgiving_join(

@@ -11,10 +11,7 @@ class Substitution(dict):
             self.update(key=value)
 
     def __getitem__(self, key):
-        try:
-            return super(Substitution, self).get(key)
-        except KeyError:
-            return key
+        return super(Substitution, self).get(key, key)
 
     def __bool__(self):
         return True
@@ -36,7 +33,7 @@ class Substitution(dict):
         new.update(*args, **kwargs)
         for key, value in self.items():     # I don't like always checking
             if new[key] != value:
-                raise ValueError("Substitution disagree: {} is {} and"
+                raise ValueError("Substitutions disagree: {} is {} and"
                                  " {}".format(key, value, new[key]))
         new = self._compress(new)
         self.clear()
