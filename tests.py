@@ -4,7 +4,7 @@ from hypothesis import given, example, reject
 from hypothesis.strategies import dictionaries, text
 
 from substitution import Substitution
-from sentence import Variable, Predicate, And, Or, Not, IFF
+from sentence import Variable, Predicate, And, Or, Not, IFF, ForAll
 
 
 class TestSubstitution(unittest.TestCase):
@@ -96,7 +96,7 @@ class TestSentence(unittest.TestCase):
     def test_substitution(self):
         x = Variable('x')
         self.assertEqual(
-            Predicate('Exists', x)(Substitution({x: 's'})),
+            Predicate('Exists', x).substitute(Substitution({x: 's'})),
             Predicate('Exists', 's')
         )
 
@@ -105,8 +105,25 @@ class TestSentence(unittest.TestCase):
         happy = Predicate('Happy', x)
         notunhappy = Not(Predicate('Unhappy', x))
         self.assertEqual(
-            IFF(happy, notunhappy).simplified(),
-            And(Or(Not(happy), notunhappy), Or(Not(notunhappy), happy))
+            ForAll(x, IFF(happy, notunhappy)).simplified(),
+            ForAll(
+                x,
+                And(Or(Not(happy), notunhappy), Or(Not(notunhappy), happy))
+            )
+        )
+
+    def test_negate_inwards(self):
+        x = Variable('x')
+        happy = Predicate('Happy', x)
+        self.assertEqual(
+            ForAll(
+                x,
+                Not(IFF(happy, Not(happy)))
+            ).simplified().negate_inwards(),
+            ForAll(
+                x,
+                Or(And(Not(happy), Not(happy)), And(happy, happy))
+            )
         )
 
 

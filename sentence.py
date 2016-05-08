@@ -27,7 +27,7 @@ class Sentence(object):
     def __hash__(self):
         return hash(self.content) + hash(type(self))
 
-    def __call__(self, subst):
+    def substitute(self, subst):
         return type(self)(*[sentence(subst) for sentence in self.content])
 
     def copy(self):
@@ -42,9 +42,7 @@ class Sentence(object):
 
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
-        # simplify
-        # move not inwards
-        # (standardize variables)
+        standardized = self.simplified().negate_inwards()
         # Skolemize
         # Drop universal quantifiers
         # Distribute And over Or
@@ -60,13 +58,50 @@ class Quantifier(Sentence):
         return "{} {} [{}]".format(self.SYMBOL, self.content[0],
                                    self.content[1])
 
+    def simplified(self):
+        """
+        Get a logical equivalent copy of this sentence using only And, Or, Not,
+        Quantifier and Predicate.
+        """
+        return type(self)(self.content[0], self.content[1].simplified())
+
+    def negate_inwards(self, negate, negative, positive):
+        """
+        Negate this sentence, pushing occurrences of Not inwards until they
+        hit a Predicate.
+        """
+        if negate:
+            return negative(
+                self.content[0],
+                self.content[1].negate_inwards(True)
+            )
+        else:
+            return positive(
+                self.content[0],
+                self.content[1].negate_inwards(False)
+            )
+
 
 class ForAll(Quantifier):
     SYMBOL = "∀"
 
+    def negate_inwards(self, negate=False):
+        """
+        Negate this sentence, pushing occurrences of Not inwards until they
+        hit a Predicate.
+        """
+        return super(ForAll, self).negate_inwards(negate, Exists, ForAll)
+
 
 class Exists(Quantifier):
     SYMBOL = "∃"
+
+    def negate_inwards(self, negate=False):
+        """
+        Negate this sentence, pushing occurrences of Not inwards until they
+        hit a Predicate.
+        """
+        return super(Exists, self).negate_inwards(negate, ForAll, Exists)
 
 
 class IFF(Sentence):
@@ -120,12 +155,22 @@ class Implies(Sentence):
 class AssociativeCommutativeBinaryOperator(Sentence):
     CONNECTIVE = None
 
-    def __init__(self, formula1, formula2, *formulas):
-        formulas = (formula1, formula2) + formulas
+    def __init__(self, formula1, *formulas):
+        formulas = (formula1, ) + formulas
         self.content = frozenset(formulas)
 
     def __repr__(self):
         return "(" + forgiving_join(self.CONNECTIVE, self.content) + ")"
+
+    def negate_inwards(self, negate, negative, positive):
+        if negate:
+            return negative(
+                *[cont.negate_inwards(True) for cont in self.content]
+            )
+        else:
+            return positive(
+                *[cont.negate_inwards(False) for cont in self.content]
+            )
 
     # Not needed :D
     # def unify(self, other):
@@ -147,9 +192,23 @@ class AssociativeCommutativeBinaryOperator(Sentence):
 class And(AssociativeCommutativeBinaryOperator):
     CONNECTIVE = " ∧ "
 
+    def negate_inwards(self, negate=False):
+        """
+        Negate this sentence, pushing occurrences of Not inwards until they
+        hit a Predicate.
+        """
+        return super(And, self).negate_inwards(negate, Or, And)
+
 
 class Or(AssociativeCommutativeBinaryOperator):
     CONNECTIVE = " ∨ "
+
+    def negate_inwards(self, negate=False):
+        """
+        Negate this sentence, pushing occurrences of Not inwards until they
+        hit a Predicate.
+        """
+        return super(Or, self).negate_inwards(negate, And, Or)
 
 
 class Not(Sentence):
@@ -162,6 +221,9 @@ class Not(Sentence):
     def unify(self, other):
         if isinstance(other, Not):
             return self.content[0].unify(other.content[0])
+
+    def negate_inwards(self, negate=False):
+        return self.content[0].negate_inwards(not negate)
 
     # def cnf(self):
     #     if isinstance(self.content, Not):
@@ -177,7 +239,7 @@ class Predicate(Sentence):
     def __init__(self, name, *arguments):
         self.content = tuple((name,) + arguments)
 
-    def __call__(self, substitution):
+    def substitute(self, substitution):
         return Predicate(*(substitution[cont] for cont in self.content))
 
     def __repr__(self):
@@ -203,6 +265,12 @@ class Predicate(Sentence):
 
     def simplified(self):
         return self.copy()
+
+    def negate_inwards(self, negate=False):
+        if negate:
+            return Not(self.copy())
+        else:
+            return self.copy()
 
     # def cnf(self):
     #     return self
