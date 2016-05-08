@@ -1,11 +1,14 @@
 from substitution import Substitution
-
-
-def forgiving_join(seperator, iterator):
-    return seperator.join(str(it) for it in iterator)
+from util import forgiving_join
 
 
 class Variable(object):
+    """
+    A representation for a variable.
+
+    The name is merely for humans. Two Variable objects x and y are only
+    considered equal when x is y.
+    """
     def __init__(self, name):
         self.name = name
 
