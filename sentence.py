@@ -33,6 +33,13 @@ class Sentence(object):
     def copy(self):
         return type(self)(*self.content)
 
+    def simplified(self):
+        """
+        Get a logical equivalent copy of this sentence using only And, Or, Not,
+        Quantifier and Predicate.
+        """
+        return type(self)(*(cont.simplified() for cont in self.content))
+
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
         # simplify
@@ -72,6 +79,13 @@ class IFF(Sentence):
     def __repr__(self):
         return "({} <=> {})".format(*self.content)
 
+    def simplified(self):
+        cont = tuple(self.content)
+        return And(
+            Implies(*cont).simplified(),
+            Implies(*reversed(cont)).simplified()
+        )
+
     # Not needed either
     # def unify(self, other):
     #     if isinstance(other, IFF):
@@ -89,6 +103,12 @@ class Implies(Sentence):
 
     def __repr__(self):
         return "({} => {})".format(*self.content)
+
+    def simplified(self):
+        return Or(
+            Not(self.content[0].simplified()),
+            self.content[1].simplified()
+        )
 
     # Not needed either
     # def unify(self, other):
@@ -134,14 +154,14 @@ class Or(AssociativeCommutativeBinaryOperator):
 
 class Not(Sentence):
     def __init__(self, sentence):
-        self.content = sentence
+        self.content = (sentence, )
 
     def __repr__(self):
-        return "¬{}".format(self.content)
+        return "¬{}".format(self.content[0])
 
     def unify(self, other):
         if isinstance(other, Not):
-            return self.content.unify(other.content)
+            return self.content[0].unify(other.content[0])
 
     # def cnf(self):
     #     if isinstance(self.content, Not):
@@ -180,6 +200,9 @@ class Predicate(Sentence):
                     else:
                         return None
             return substitution
+
+    def simplified(self):
+        return self.copy()
 
     # def cnf(self):
     #     return self

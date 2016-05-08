@@ -4,7 +4,7 @@ from hypothesis import given, example, reject
 from hypothesis.strategies import dictionaries, text
 
 from substitution import Substitution
-from sentence import Variable, Predicate
+from sentence import Variable, Predicate, And, Or, Not, IFF
 
 
 class TestSubstitution(unittest.TestCase):
@@ -98,6 +98,15 @@ class TestSentence(unittest.TestCase):
         self.assertEqual(
             Predicate('Exists', x)(Substitution({x: 's'})),
             Predicate('Exists', 's')
+        )
+
+    def test_simplified(self):
+        x = Variable('x')
+        happy = Predicate('Happy', x)
+        notunhappy = Not(Predicate('Unhappy', x))
+        self.assertEqual(
+            IFF(happy, notunhappy).simplified(),
+            And(Or(Not(happy), notunhappy), Or(Not(notunhappy), happy))
         )
 
 
