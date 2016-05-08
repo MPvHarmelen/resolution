@@ -30,6 +30,72 @@ class Sentence(object):
     def __call__(self, subst):
         return type(self)(*[sentence(subst) for sentence in self.content])
 
+    def copy(self):
+        return type(self)(*self.content)
+
+    def cnf(self):
+        """Convert sentence to conjunctive normal form"""
+        # simplify
+        # move not inwards
+        # (standardize variables)
+        # Skolemize
+        # Drop universal quantifiers
+        # Distribute And over Or
+
+
+class Quantifier(Sentence):
+    SYMBOL = None
+
+    def __init__(self, variable, sentence):
+        self.content = (variable, sentence)
+
+    def __repr__(self):
+        return "{} {} [{}]".format(self.SYMBOL, self.content[0],
+                                   self.content[1])
+
+
+class ForAll(Quantifier):
+    SYMBOL = "∀"
+
+
+class Exists(Quantifier):
+    SYMBOL = "∃"
+
+
+class IFF(Sentence):
+    def __init__(self, formula1, formula2):
+        self.content = frozenset((formula1, formula2))
+        # The following happens when (formula1 is formula2) is True
+        if len(self.content) == 1:
+            self.content = (formula1, formula2)
+
+    def __repr__(self):
+        return "({} <=> {})".format(*self.content)
+
+    # Not needed either
+    # def unify(self, other):
+    #     if isinstance(other, IFF):
+    #         selfc = tuple(self.content)
+    #         otherc = tuple(other.content)
+    #         return selfc[0].unify(otherc[0]) & \
+    #             selfc[1].unify(otherc[1]) or \
+    #             selfc[0].unify(otherc[1]) & \
+    #             selfc[1].unify(otherc[0])
+
+
+class Implies(Sentence):
+    def __init__(self, formula1, formula2):
+        self.content = tuple((formula1, formula2))
+
+    def __repr__(self):
+        return "({} => {})".format(*self.content)
+
+    # Not needed either
+    # def unify(self, other):
+    #     if isinstance(other, Implies):
+    #         return self.content[0].unify(other.content[0]) & \
+    #             self.content[1].unify(other.content[1])
+
 
 class AssociativeCommutativeBinaryOperator(Sentence):
     CONNECTIVE = None
@@ -66,47 +132,12 @@ class Or(AssociativeCommutativeBinaryOperator):
     CONNECTIVE = " ∨ "
 
 
-class IFF(Sentence):
-    def __init__(self, formula1, formula2):
-        self.content = frozenset((formula1, formula2))
-        # The following happens when (formula1 is formula2) is True
-        if len(self.content) == 1:
-            self.content = (formula1, formula2)
-
-    def __repr__(self):
-        return "(" + forgiving_join(" <=> ", self.content) + ")"
-
-    # Not needed either
-    # def unify(self, other):
-    #     if isinstance(other, IFF):
-    #         selfc = tuple(self.content)
-    #         otherc = tuple(other.content)
-    #         return selfc[0].unify(otherc[0]) & \
-    #             selfc[1].unify(otherc[1]) or \
-    #             selfc[0].unify(otherc[1]) & \
-    #             selfc[1].unify(otherc[0])
-
-
-class Implies(Sentence):
-    def __init__(self, formula1, formula2):
-        self.content = tuple((formula1, formula2))
-
-    def __repr__(self):
-        return "({} => {})".format(*self.content)
-
-    # Not needed either
-    # def unify(self, other):
-    #     if isinstance(other, Implies):
-    #         return self.content[0].unify(other.content[0]) & \
-    #             self.content[1].unify(other.content[1])
-
-
 class Not(Sentence):
     def __init__(self, sentence):
         self.content = sentence
 
     def __repr__(self):
-        return "¬" + str(self.content)
+        return "¬{}".format(self.content)
 
     def unify(self, other):
         if isinstance(other, Not):
@@ -130,9 +161,10 @@ class Predicate(Sentence):
         return Predicate(*(substitution[cont] for cont in self.content))
 
     def __repr__(self):
-        return str(self.content[0]) + "(" + forgiving_join(
-            ", ", self.content[1:]
-        ) + ")"
+        return "{}({})".format(
+            self.content[0],
+            forgiving_join(", ", self.content[1:])
+        )
 
     def unify(self, other):
         if isinstance(other, Predicate) and \
@@ -148,3 +180,6 @@ class Predicate(Sentence):
                     else:
                         return None
             return substitution
+
+    # def cnf(self):
+    #     return self
