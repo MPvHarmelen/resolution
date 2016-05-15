@@ -9,13 +9,6 @@ from util import forgiving_join
 #   - Add XOR, NOR
 
 
-class object(object):
-    def __repr__(self):
-        rep = super(object, self).__repr__()
-        print(rep)
-        return rep
-
-
 class Variable(object):
     """
     A representation for a variable.
