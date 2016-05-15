@@ -131,6 +131,16 @@ class TestSentence(unittest.TestCase):
                 Predicate('Equals', 's', y)
             )
         )
+        self.assertEqual(
+            Exists(
+                y,
+                Predicate('Equals', Function('F', x), y)
+            ).substitute(Substitution({x: 's'})),
+            Exists(
+                y,
+                Predicate('Equals', Function('F', 's'), y)
+            )
+        )
 
     def test_simplified(self):
         x = Variable('x')

@@ -9,6 +9,13 @@ from util import forgiving_join
 #   - Add XOR, NOR
 
 
+class object(object):
+    def __repr__(self):
+        rep = super(object, self).__repr__()
+        print(rep)
+        return rep
+
+
 class Variable(object):
     """
     A representation for a variable.
@@ -77,9 +84,9 @@ class Function(RecursiveObject):
 
         The substitution is handled as if it's a dict.
         """
-        new_content = [self.content[0]]
+        new_content = []
         substituted = False
-        for cont in self.content[1:]:
+        for cont in self.content:
             if isinstance(cont, Variable) and cont in dic:
                 substituted = True
                 cont = dic[cont]
@@ -87,7 +94,7 @@ class Function(RecursiveObject):
                 cont, newsub = cont.substituted(dic)
                 substituted |= newsub
             new_content.append(cont)
-        return Function(*new_content), substituted
+        return self.copy(new_content), substituted
 
     def unify(self, other):
         if isinstance(other, Function) and \
@@ -333,9 +340,10 @@ class Predicate(Sentence):
         self.content = arguments
 
     def substitute(self, substitution):
-        return Predicate(
-            self.name,
-            *(substitution[cont] for cont in self.content)
+        return self.copy(
+            cont.substituted(substitution)[0] if isinstance(cont, Function)
+            else substitution[cont]
+            for cont in self.content
         )
 
     def unify(self, other):
