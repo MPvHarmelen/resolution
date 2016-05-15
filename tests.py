@@ -172,7 +172,11 @@ class TestSentence(unittest.TestCase):
         x = Variable('x')
         y = Variable('y')
         happyx = Predicate('Happy', x)
+        angryx = Predicate('Angry', x)
         happyf = Predicate('Happy', Function('F', y))
+        self.assertIsNone(
+            angryx.unify(happyx)
+        )
         self.assertEqual(happyx.unify(happyf), happyf.unify(happyx))
         self.assertEqual(
             happyx.unify(happyf),

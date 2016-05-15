@@ -348,10 +348,10 @@ class Predicate(Sentence):
 
     def unify(self, other):
         if isinstance(other, Predicate) and \
-                self.content[0] == other.content[0] and \
+                self.name == other.name and \
                 len(self.content) == len(other.content):
             substitution = sub.Substitution()
-            for selfc, otherc in zip(self.content[1:], other.content[1:]):
+            for selfc, otherc in zip(self.content, other.content):
                 if selfc != otherc:
                     if isinstance(selfc, Variable):
                         substitution[selfc] = otherc
