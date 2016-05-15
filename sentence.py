@@ -35,7 +35,7 @@ class RecursiveObject(object):
             self.name == other.name
 
     def __hash__(self):
-        return hash(self.name) + hash(self.content) + hash(type(self))
+        return hash(type(self)) + hash(self.name) + hash(self.content)
 
     def __contains__(self, something):
         if self == something:
@@ -240,9 +240,6 @@ class AssociativeCommutativeBinaryOperator(Sentence):
         formulas = (formula1, ) + formulas
         self.content = frozenset(formulas)
 
-    def __repr__(self):
-        return "(" + forgiving_join(self.CONNECTIVE, self.content) + ")"
-
     def simplified(self):
         if len(self.content) == 1:
             return self.content[0].simplified()
@@ -253,7 +250,10 @@ class AssociativeCommutativeBinaryOperator(Sentence):
             ).simplified()
 
     def negate_inwards(self, negate, negative, positive):
-        if negate:
+        if len(self.content) == 1:
+            # Delete myself
+            return self.content[0].negate_inwards(negate)
+        elif negate:
             return negative(
                 *[cont.negate_inwards(True) for cont in self.content]
             )
