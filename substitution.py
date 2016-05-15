@@ -1,3 +1,9 @@
+import sentence
+# To do:
+#   - Think again about circular substitutions (it shouldn't be a problem,
+#     because both are variables, just arbitrarily choose one)
+
+
 class Substitution(dict):
     def __init__(self, *args, **kwargs):
         super(Substitution, self).__init__(*args, **kwargs)
@@ -8,7 +14,7 @@ class Substitution(dict):
 
     def __setitem__(self, key, value):
         if key != value:
-            self.update(key=value)
+            self.update({key: value})
 
     def __getitem__(self, key):
         return super(Substitution, self).get(key, key)
@@ -32,6 +38,8 @@ class Substitution(dict):
         new = dict(self)
         new.update(*args, **kwargs)
         for key, value in self.items():     # I don't like always checking
+            if not isinstance(key, sentence.Variable):
+                raise ValueError("Only Variable may be substituted")
             if new[key] != value:
                 raise ValueError("Substitutions disagree: {} is {} and"
                                  " {}".format(key, value, new[key]))
@@ -44,10 +52,19 @@ class Substitution(dict):
         substituted = True
         while substituted:
             substituted = False
-            for key, value in dic.items():
-                if value in dic:
-                    if key == value:
+            for key, value in list(dic.items()):
+                if key == value:
+                    # Choosing either one of two variables isn't a problem
+                    del dic[key]
+                elif isinstance(value, sentence.Function):
+                    if key in value:
+                        # This is really a circular substitution
                         raise ValueError("Circular substitution")
+                    else:
+                        # substitute it
+                        dic[key], subst = value.substituted(dic)
+                        substituted |= subst
+                elif value in dic:
                     substituted = True
                     dic[key] = dic[value]
         return dic

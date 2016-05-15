@@ -1,5 +1,12 @@
-from substitution import Substitution
+import substitution as sub
 from util import forgiving_join
+
+# To do:
+#   - Fix substitution:
+#       - substituting a quantified variable
+#       - see comments in substitution.py
+#   - Think about whether I want to add Function functionality
+#   - Add XOR, NOR
 
 
 class Variable(object):
@@ -17,28 +24,102 @@ class Variable(object):
         return "$" + str(self.name)
 
 
-class Sentence(object):
-    def __init__(self):
-        self.content = None
+class RecursiveObject(object):
+    name = None
+    content = None
+    CONNECTIVE = None
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and self.content == other.content
+        return isinstance(other, type(self)) and \
+            self.content == other.content and \
+            self.name == other.name
 
     def __hash__(self):
-        return hash(self.content) + hash(type(self))
+        return hash(self.name) + hash(self.content) + hash(type(self))
 
+    def __contains__(self, something):
+        if self == something:
+            return True
+        else:
+            return any(
+                something in cont if isinstance(cont, RecursiveObject)
+                else something == cont
+                for cont in self.content
+            )
+
+    def __repr__(self):
+        rep = "({})".format(
+            forgiving_join(self.CONNECTIVE, self.content)
+        )
+        if self.name is not None:
+            rep = self.name + rep
+        return rep
+
+    def copy(self, content=None):
+        content = self.content if content is None else content
+        if self.name is None:
+            return type(self)(*content)
+        else:
+            return type(self)(self.name, *content)
+
+
+class Function(RecursiveObject):
+    CONNECTIVE = ', '
+
+    def __init__(self, name, *arguments):
+        self.name = name
+        self.content = arguments
+
+    def substituted(self, dic):
+        """
+        Apply a substitution to this Function AND return whether anything was
+        substituted.
+
+        The substitution is handled as if it's a dict.
+        """
+        new_content = [self.content[0]]
+        substituted = False
+        for cont in self.content[1:]:
+            if isinstance(cont, Variable) and cont in dic:
+                substituted = True
+                cont = dic[cont]
+            elif isinstance(cont, Function):
+                cont, newsub = cont.substituted(dic)
+                substituted |= newsub
+            new_content.append(cont)
+        return Function(*new_content), substituted
+
+    def unify(self, other):
+        if isinstance(other, Function) and \
+                self.name == other.name and \
+                len(self.content) == len(other.content):
+            substitution = sub.Substitution()
+            for selfc, otherc in zip(self.content, other.content):
+                if selfc != otherc:
+                    if isinstance(selfc, Variable):
+                        substitution[selfc] = otherc
+                    elif isinstance(otherc, Variable):
+                        substitution[otherc] = selfc
+                    else:
+                        return None
+            return substitution
+
+
+class Sentence(RecursiveObject):
     def substitute(self, subst):
-        return type(self)(*[sentence(subst) for sentence in self.content])
-
-    def copy(self):
-        return type(self)(*self.content)
+        """
+        Apply a substitution to this Sentence
+        """
+        return self.copy(
+            sentence.substitute(subst) for sentence in self.content
+        )
 
     def simplified(self):
         """
         Get a logical equivalent copy of this sentence using only And, Or, Not,
         Quantifier and Predicate.
         """
-        return type(self)(*(cont.simplified() for cont in self.content))
+        return self.copy(cont.simplified() for cont in self.content)
 
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
@@ -52,18 +133,22 @@ class Quantifier(Sentence):
     SYMBOL = None
 
     def __init__(self, variable, sentence):
-        self.content = (variable, sentence)
+        self.name = variable
+        self.content = (sentence, )
 
     def __repr__(self):
-        return "{} {} [{}]".format(self.SYMBOL, self.content[0],
-                                   self.content[1])
+        return "{} {} [{}]".format(self.SYMBOL, self.name, self.content[0])
 
-    def simplified(self):
+    def substitute(self, subst):
         """
-        Get a logical equivalent copy of this sentence using only And, Or, Not,
-        Quantifier and Predicate.
+        Apply a substitution to this sentence
         """
-        return type(self)(self.content[0], self.content[1].simplified())
+        if self.name in subst:
+            raise ValueError(
+                "Can't substitute a quantified variable. ({}, {})"
+                .format(self, subst)
+            )
+        return super(Quantifier, self).substitute(subst)
 
     def negate_inwards(self, negate, negative, positive):
         """
@@ -72,13 +157,13 @@ class Quantifier(Sentence):
         """
         if negate:
             return negative(
-                self.content[0],
-                self.content[1].negate_inwards(True)
+                self.name,
+                self.content[0].negate_inwards(True)
             )
         else:
             return positive(
-                self.content[0],
-                self.content[1].negate_inwards(False)
+                self.name,
+                self.content[0].negate_inwards(False)
             )
 
 
@@ -105,14 +190,13 @@ class Exists(Quantifier):
 
 
 class IFF(Sentence):
+    CONNECTIVE = ' <=> '
+
     def __init__(self, formula1, formula2):
         self.content = frozenset((formula1, formula2))
         # The following happens when (formula1 is formula2) is True
         if len(self.content) == 1:
             self.content = (formula1, formula2)
-
-    def __repr__(self):
-        return "({} <=> {})".format(*self.content)
 
     def simplified(self):
         cont = tuple(self.content)
@@ -133,11 +217,10 @@ class IFF(Sentence):
 
 
 class Implies(Sentence):
-    def __init__(self, formula1, formula2):
-        self.content = tuple((formula1, formula2))
+    CONNECTIVE = ' => '
 
-    def __repr__(self):
-        return "({} => {})".format(*self.content)
+    def __init__(self, formula1, formula2):
+        self.content = (formula1, formula2)
 
     def simplified(self):
         return Or(
@@ -153,14 +236,21 @@ class Implies(Sentence):
 
 
 class AssociativeCommutativeBinaryOperator(Sentence):
-    CONNECTIVE = None
-
     def __init__(self, formula1, *formulas):
         formulas = (formula1, ) + formulas
         self.content = frozenset(formulas)
 
     def __repr__(self):
         return "(" + forgiving_join(self.CONNECTIVE, self.content) + ")"
+
+    def simplified(self):
+        if len(self.content) == 1:
+            return self.content[0].simplified()
+        else:
+            return super(
+                AssociativeCommutativeBinaryOperator,
+                self
+            ).simplified()
 
     def negate_inwards(self, negate, negative, positive):
         if negate:
@@ -176,7 +266,7 @@ class AssociativeCommutativeBinaryOperator(Sentence):
     # def unify(self, other):
     #     if type(self) == type(other):
     #         selfc, otherc = set(self.content), set(other.content)
-    #         substitution = Substitution()
+    #         substitution = sub.Substitution()
     #         for selfsentence in selfc:
     #             for othersentence in otherc:
     #                 subst = selfsentence.unify(othersentence)
@@ -236,29 +326,32 @@ class Not(Sentence):
 
 
 class Predicate(Sentence):
+    CONNECTIVE = ', '
+
     def __init__(self, name, *arguments):
-        self.content = tuple((name,) + arguments)
+        self.name = name
+        self.content = arguments
 
     def substitute(self, substitution):
-        return Predicate(*(substitution[cont] for cont in self.content))
-
-    def __repr__(self):
-        return "{}({})".format(
-            self.content[0],
-            forgiving_join(", ", self.content[1:])
+        return Predicate(
+            self.name,
+            *(substitution[cont] for cont in self.content)
         )
 
     def unify(self, other):
         if isinstance(other, Predicate) and \
-           self.content[0] == other.content[0] and \
-           len(self.content) == len(other.content):
-            substitution = Substitution()
+                self.content[0] == other.content[0] and \
+                len(self.content) == len(other.content):
+            substitution = sub.Substitution()
             for selfc, otherc in zip(self.content[1:], other.content[1:]):
                 if selfc != otherc:
                     if isinstance(selfc, Variable):
                         substitution[selfc] = otherc
                     elif isinstance(otherc, Variable):
                         substitution[otherc] = selfc
+                    elif isinstance(selfc, Function) and \
+                            isinstance(otherc, Function):
+                        substitution &= selfc.unify(otherc)
                     else:
                         return None
             return substitution
