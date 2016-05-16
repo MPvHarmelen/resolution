@@ -163,6 +163,11 @@ class Quantifier(Sentence):
     def __repr__(self):
         return "{} {} [{}]".format(self.SYMBOL, self.name, self.content[0])
 
+    def free_variables(self):
+        frees = super(Quantifier, self).free_variables()
+        frees.discard(self.name)
+        return frees
+
     def substitute(self, subst):
         """
         Apply a substitution to this sentence
@@ -189,11 +194,6 @@ class Quantifier(Sentence):
                 self.name,
                 self.content[0].negate_inwards(False)
             )
-
-    def free_variables(self):
-        frees = super(Quantifier, self).free_variables()
-        frees.discard(self.name)
-        return frees
 
 
 class ForAll(Quantifier):
@@ -234,16 +234,6 @@ class IFF(Sentence):
             Implies(*reversed(cont)).simplified()
         )
 
-    # Not needed either
-    # def unify(self, other):
-    #     if isinstance(other, IFF):
-    #         selfc = tuple(self.content)
-    #         otherc = tuple(other.content)
-    #         return selfc[0].unify(otherc[0]) & \
-    #             selfc[1].unify(otherc[1]) or \
-    #             selfc[0].unify(otherc[1]) & \
-    #             selfc[1].unify(otherc[0])
-
 
 class Implies(Sentence):
     CONNECTIVE = ' => '
@@ -257,32 +247,11 @@ class Implies(Sentence):
             self.content[1].simplified()
         )
 
-    # Not needed either
-    # def unify(self, other):
-    #     if isinstance(other, Implies):
-    #         return self.content[0].unify(other.content[0]) & \
-    #             self.content[1].unify(other.content[1])
-
 
 class AssociativeCommutativeBinaryOperator(Sentence):
     def __init__(self, formula1, *formulas):
         formulas = (formula1, ) + formulas
         self.content = frozenset(formulas)
-
-    # def __eq__(self, other):
-    #     return super(
-    #         AssociativeCommutativeBinaryOperator,
-    #         self
-    #     ).__eq__(other) or (
-    #         len(self.content) == 1 and
-    #         next(iter(self.content)) == other
-    #     )
-
-    # def __hash__(self):
-    #     if len(self.content) == 1:
-    #         return hash(next(iter(self.content)))
-    #     else:
-    #         return super(AssociativeCommutativeBinaryOperator, self).__hash__()
 
     def simplified(self):
         # if len(self.content) == 1:
@@ -311,22 +280,6 @@ class AssociativeCommutativeBinaryOperator(Sentence):
             return positive(
                 *[cont.negate_inwards(False) for cont in self.content]
             )
-
-    # Not needed :D
-    # def unify(self, other):
-    #     if type(self) == type(other):
-    #         selfc, otherc = set(self.content), set(other.content)
-    #         substitution = sub.Substitution()
-    #         for selfsentence in selfc:
-    #             for othersentence in otherc:
-    #                 subst = selfsentence.unify(othersentence)
-    #                 if subst:
-    #                     otherc.pop(othersentence) # Not really correct
-    #                     break
-    #             else:
-    #                 return
-    #             substitution |= subst
-    #         return substitution
 
 
 class And(AssociativeCommutativeBinaryOperator):
