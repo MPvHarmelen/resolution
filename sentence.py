@@ -1,3 +1,5 @@
+from functools import wraps
+
 import substitution as sub
 from util import forgiving_join
 
@@ -22,6 +24,16 @@ class Variable(object):
 
     def __repr__(self):
         return "$" + str(self.name)
+
+
+def recursive(f):
+    @wraps(f)
+    def inner(self, *args, **kwargs):
+        return self.copy(
+            f(sentence, *args, **kwargs)
+            for sentence in self.content
+        )
+    return inner
 
 
 class RecursiveObject(object):
@@ -70,6 +82,11 @@ class Function(RecursiveObject):
         self.name = name
         self.content = arguments
 
+    def free_variables(self):
+        return {x for x in self.content if isinstance(x, Variable)} | \
+            {x for s in (f.free_variables() for f in self.content
+             if isinstance(f, Function)) for x in s}
+
     def substituted(self, dic):
         """
         Apply a substitution to this Function AND return whether anything was
@@ -106,26 +123,27 @@ class Function(RecursiveObject):
 
 
 class Sentence(RecursiveObject):
-    def substitute(self, subst):
-        """
-        Apply a substitution to this Sentence
-        """
-        return self.copy(
-            sentence.substitute(subst) for sentence in self.content
-        )
+    def free_variables(self):
+        """Get all free variables of this sentence"""
+        return {x for c in self.content for x in c.free_variables()}
 
+    @recursive
+    def substitute(self, subst):
+        """Apply a substitution to this Sentence"""
+        return self.substitute(subst)
+
+    @recursive
     def simplified(self):
         """
         Get a logical equivalent copy of this sentence using only And, Or, Not,
         Quantifier and Predicate.
         """
-        return self.copy(cont.simplified() for cont in self.content)
+        return self.simplified()
 
+    @recursive
     def cleaned(self):
-        """
-        Remove any meaningless parts of the sentence
-        """
-        return self.copy(cont.cleaned() for cont in self.content)
+        """Remove any meaningless parts of this Sentence"""
+        return self.cleaned()
 
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
@@ -171,6 +189,11 @@ class Quantifier(Sentence):
                 self.name,
                 self.content[0].negate_inwards(False)
             )
+
+    def free_variables(self):
+        frees = super(Quantifier, self).free_variables()
+        frees.discard(self.name)
+        return frees
 
 
 class ForAll(Quantifier):
@@ -359,13 +382,6 @@ class Predicate(Sentence):
         self.name = name
         self.content = arguments
 
-    def substitute(self, substitution):
-        return self.copy(
-            cont.substituted(substitution)[0] if isinstance(cont, Function)
-            else substitution[cont]
-            for cont in self.content
-        )
-
     def unify(self, other):
         if isinstance(other, Predicate) and \
                 self.name == other.name and \
@@ -383,6 +399,15 @@ class Predicate(Sentence):
                     else:
                         return None
             return substitution
+
+    free_variables = Function.free_variables
+
+    def substitute(self, substitution):
+        return self.copy(
+            cont.substituted(substitution)[0] if isinstance(cont, Function)
+            else substitution[cont]
+            for cont in self.content
+        )
 
     def simplified(self):
         return self.copy()

@@ -182,6 +182,14 @@ class TestSentence(unittest.TestCase):
             )
         )
 
+    def test_free_variables(self):
+        x, y = Variable('x'), Variable('y')
+        happyx = Predicate('Happy', x)
+        happyy = Predicate('Happy', Function('F', y))
+        self.assertEqual(happyx.free_variables(), {x})
+        self.assertEqual(ForAll(x, happyx).free_variables(), set())
+        self.assertEqual(ForAll(x, Or(happyx, happyy)).free_variables(), {y})
+
     def test_unification(self):
         x = Variable('x')
         y = Variable('y')
