@@ -262,9 +262,6 @@ class AssociativeCommutativeBinaryOperator(Sentence):
         self.content = frozenset(formulas)
 
     def simplified(self):
-        # if len(self.content) == 1:
-        #     return next(iter(self.content)).simplified()
-        # else:
         return super(
             AssociativeCommutativeBinaryOperator,
             self
@@ -277,9 +274,6 @@ class AssociativeCommutativeBinaryOperator(Sentence):
             return super(AssociativeCommutativeBinaryOperator, self).cleaned()
 
     def negate_inwards(self, negate, negative, positive):
-        # if len(self.content) == 1:
-        #     # Delete myself
-        #     return next(iter(self.content)).negate_inwards(negate)
         if negate:
             return negative(
                 *[cont.negate_inwards(True) for cont in self.content]
