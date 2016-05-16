@@ -121,6 +121,12 @@ class Sentence(RecursiveObject):
         """
         return self.copy(cont.simplified() for cont in self.content)
 
+    def cleaned(self):
+        """
+        Remove any meaningless parts of the sentence
+        """
+        return self.copy(cont.cleaned() for cont in self.content)
+
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
         standardized = self.simplified().negate_inwards()
@@ -240,20 +246,41 @@ class AssociativeCommutativeBinaryOperator(Sentence):
         formulas = (formula1, ) + formulas
         self.content = frozenset(formulas)
 
+    # def __eq__(self, other):
+    #     return super(
+    #         AssociativeCommutativeBinaryOperator,
+    #         self
+    #     ).__eq__(other) or (
+    #         len(self.content) == 1 and
+    #         next(iter(self.content)) == other
+    #     )
+
+    # def __hash__(self):
+    #     if len(self.content) == 1:
+    #         return hash(next(iter(self.content)))
+    #     else:
+    #         return super(AssociativeCommutativeBinaryOperator, self).__hash__()
+
     def simplified(self):
+        # if len(self.content) == 1:
+        #     return next(iter(self.content)).simplified()
+        # else:
+        return super(
+            AssociativeCommutativeBinaryOperator,
+            self
+        ).simplified()
+
+    def cleaned(self):
         if len(self.content) == 1:
-            return self.content[0].simplified()
+            return next(iter(self.content)).cleaned()
         else:
-            return super(
-                AssociativeCommutativeBinaryOperator,
-                self
-            ).simplified()
+            return super(AssociativeCommutativeBinaryOperator, self).cleaned()
 
     def negate_inwards(self, negate, negative, positive):
-        if len(self.content) == 1:
-            # Delete myself
-            return self.content[0].negate_inwards(negate)
-        elif negate:
+        # if len(self.content) == 1:
+        #     # Delete myself
+        #     return next(iter(self.content)).negate_inwards(negate)
+        if negate:
             return negative(
                 *[cont.negate_inwards(True) for cont in self.content]
             )
@@ -358,6 +385,9 @@ class Predicate(Sentence):
             return substitution
 
     def simplified(self):
+        return self.copy()
+
+    def cleaned(self):
         return self.copy()
 
     def negate_inwards(self, negate=False):

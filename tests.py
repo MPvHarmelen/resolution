@@ -164,7 +164,21 @@ class TestSentence(unittest.TestCase):
             ).simplified().negate_inwards(),
             ForAll(
                 x,
-                Or(And(Not(happy), Not(happy)), And(happy, happy))
+                Or(And(Not(happy)), And(happy))
+            )
+        )
+
+    def test_cleaned(self):
+        x = Variable('x')
+        happy = Predicate('Happy', x)
+        self.assertEqual(
+            ForAll(
+                x,
+                Not(IFF(happy, Not(happy)))
+            ).simplified().negate_inwards().cleaned(),
+            ForAll(
+                x,
+                Or(Not(happy), happy)
             )
         )
 
