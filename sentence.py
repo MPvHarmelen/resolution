@@ -177,6 +177,8 @@ class Quantifier(Sentence):
                 "Can't substitute a quantified variable. ({}, {})"
                 .format(self, subst)
             )
+            # subst = subst.copy()
+            # del subst[self.name]
         return super(Quantifier, self).substitute(subst)
 
     def negate_inwards(self, negate, negative, positive):
@@ -194,6 +196,12 @@ class Quantifier(Sentence):
                 self.name,
                 self.content[0].negate_inwards(False)
             )
+
+    def cleaned(self):
+        if self.name in super(Quantifier, self).free_variables():
+            return super(Quantifier, self).cleaned()
+        else:
+            return self.content[0].cleaned()
 
 
 class ForAll(Quantifier):

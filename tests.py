@@ -141,6 +141,13 @@ class TestSentence(unittest.TestCase):
                 Predicate('Equals', Function('F', 's'), y)
             )
         )
+        self.assertRaises(
+            ValueError,
+            lambda: Exists(
+                y,
+                Predicate('Equals', Function('F', x), y)
+            ).substitute(Substitution({y: 's', x: y}))
+        )
 
     def test_simplified(self):
         x = Variable('x')
@@ -176,6 +183,17 @@ class TestSentence(unittest.TestCase):
                 x,
                 Not(IFF(happy, Not(happy)))
             ).simplified().negate_inwards().cleaned(),
+            ForAll(
+                x,
+                Or(Not(happy), happy)
+            )
+        )
+        y = Variable('y')
+        self.assertEqual(
+            ForAll(y, ForAll(
+                x,
+                Not(IFF(happy, Not(happy)))
+            )).simplified().negate_inwards().cleaned(),
             ForAll(
                 x,
                 Or(Not(happy), happy)
