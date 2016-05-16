@@ -141,16 +141,30 @@ class Sentence(RecursiveObject):
         return self.simplified()
 
     @recursive
+    def skolemised(self, variables=tuple()):
+        """
+        Replace existentially quantified variables by a Function of the
+        universally quantified variables in this scope. Drop universal
+        quantifiers.
+        """
+        return self.skolemised(variables)
+
+    @recursive
+    def distributed(self):
+        """
+        Distribute And over Or
+        """
+        return self.distributed()
+
+    @recursive
     def cleaned(self):
         """Remove any meaningless parts of this Sentence"""
         return self.cleaned()
 
     def cnf(self):
         """Convert sentence to conjunctive normal form"""
-        standardized = self.simplified().negate_inwards()
-        # Skolemize
-        # Drop universal quantifiers
-        # Distribute And over Or
+        return self.simplified().negated_inwards().skolemised().cleaned() \
+            .distributed()
 
 
 class Quantifier(Sentence):
@@ -181,7 +195,7 @@ class Quantifier(Sentence):
             # del subst[self.name]
         return super(Quantifier, self).substitute(subst)
 
-    def negate_inwards(self, negate, negative, positive):
+    def negated_inwards(self, negate, negative, positive):
         """
         Negate this sentence, pushing occurrences of Not inwards until they
         hit a Predicate.
@@ -189,14 +203,15 @@ class Quantifier(Sentence):
         if negate:
             return negative(
                 self.name,
-                self.content[0].negate_inwards(True)
+                self.content[0].negated_inwards(True)
             )
         else:
             return positive(
                 self.name,
-                self.content[0].negate_inwards(False)
+                self.content[0].negated_inwards(False)
             )
 
+    # It feels like the following function can be wrapped with recursive
     def cleaned(self):
         if self.name in super(Quantifier, self).free_variables():
             return super(Quantifier, self).cleaned()
@@ -207,23 +222,31 @@ class Quantifier(Sentence):
 class ForAll(Quantifier):
     SYMBOL = "∀"
 
-    def negate_inwards(self, negate=False):
+    def negated_inwards(self, negate=False):
         """
         Negate this sentence, pushing occurrences of Not inwards until they
         hit a Predicate.
         """
-        return super(ForAll, self).negate_inwards(negate, Exists, ForAll)
+        return super(ForAll, self).negated_inwards(negate, Exists, ForAll)
+
+    def skolemised(self, variables=tuple()):
+        return self.content[0].skolemised({self.name}.union(variables))
 
 
 class Exists(Quantifier):
     SYMBOL = "∃"
 
-    def negate_inwards(self, negate=False):
+    def negated_inwards(self, negate=False):
         """
         Negate this sentence, pushing occurrences of Not inwards until they
         hit a Predicate.
         """
-        return super(Exists, self).negate_inwards(negate, ForAll, Exists)
+        return super(Exists, self).negated_inwards(negate, ForAll, Exists)
+
+    def skolemised(self, variables=tuple()):
+        # Replace my variable with a function
+        s = sub.Substitution({self.name: Function(str(id(self)), *variables)})
+        return self.content[0].substitute(s).skolemised(variables)
 
 
 class IFF(Sentence):
@@ -268,42 +291,51 @@ class AssociativeCommutativeBinaryOperator(Sentence):
         ).simplified()
 
     def cleaned(self):
-        if len(self.content) == 1:
-            return next(iter(self.content)).cleaned()
-        else:
-            return super(AssociativeCommutativeBinaryOperator, self).cleaned()
+        new = super(AssociativeCommutativeBinaryOperator, self).cleaned()
+        if len(new.content) == 1:
+            return next(iter(new.content)).cleaned()
+        newcont = set()
+        for cont in new.content:
+            if type(cont) == type(new):
+                newcont.update(cont.content)
+            else:
+                newcont.add(cont)
+        return type(self)(*newcont)
 
-    def negate_inwards(self, negate, negative, positive):
+    def negated_inwards(self, negate, negative, positive):
         if negate:
             return negative(
-                *[cont.negate_inwards(True) for cont in self.content]
+                *[cont.negated_inwards(True) for cont in self.content]
             )
         else:
             return positive(
-                *[cont.negate_inwards(False) for cont in self.content]
+                *[cont.negated_inwards(False) for cont in self.content]
             )
+
+    def distributed(self, otherType):
+        ...
 
 
 class And(AssociativeCommutativeBinaryOperator):
     CONNECTIVE = " ∧ "
 
-    def negate_inwards(self, negate=False):
+    def negated_inwards(self, negate=False):
         """
         Negate this sentence, pushing occurrences of Not inwards until they
         hit a Predicate.
         """
-        return super(And, self).negate_inwards(negate, Or, And)
+        return super(And, self).negated_inwards(negate, Or, And)
 
 
 class Or(AssociativeCommutativeBinaryOperator):
     CONNECTIVE = " ∨ "
 
-    def negate_inwards(self, negate=False):
+    def negated_inwards(self, negate=False):
         """
         Negate this sentence, pushing occurrences of Not inwards until they
         hit a Predicate.
         """
-        return super(Or, self).negate_inwards(negate, And, Or)
+        return super(Or, self).negated_inwards(negate, And, Or)
 
 
 class Not(Sentence):
@@ -317,8 +349,8 @@ class Not(Sentence):
         if isinstance(other, Not):
             return self.content[0].unify(other.content[0])
 
-    def negate_inwards(self, negate=False):
-        return self.content[0].negate_inwards(not negate)
+    def negated_inwards(self, negate=False):
+        return self.content[0].negated_inwards(not negate)
 
     # def cnf(self):
     #     if isinstance(self.content, Not):
@@ -370,7 +402,10 @@ class Predicate(Sentence):
     def cleaned(self):
         return self.copy()
 
-    def negate_inwards(self, negate=False):
+    def skolemised(self, variables=tuple()):
+        return self.copy()
+
+    def negated_inwards(self, negate=False):
         if negate:
             return Not(self.copy())
         else:

@@ -161,14 +161,14 @@ class TestSentence(unittest.TestCase):
             )
         )
 
-    def test_negate_inwards(self):
+    def test_negated_inwards(self):
         x = Variable('x')
         happy = Predicate('Happy', x)
         self.assertEqual(
             ForAll(
                 x,
                 Not(IFF(happy, Not(happy)))
-            ).simplified().negate_inwards(),
+            ).simplified().negated_inwards(),
             ForAll(
                 x,
                 Or(And(Not(happy)), And(happy))
@@ -182,7 +182,7 @@ class TestSentence(unittest.TestCase):
             ForAll(
                 x,
                 Not(IFF(happy, Not(happy)))
-            ).simplified().negate_inwards().cleaned(),
+            ).simplified().negated_inwards().cleaned(),
             ForAll(
                 x,
                 Or(Not(happy), happy)
@@ -193,11 +193,37 @@ class TestSentence(unittest.TestCase):
             ForAll(y, ForAll(
                 x,
                 Not(IFF(happy, Not(happy)))
-            )).simplified().negate_inwards().cleaned(),
+            )).simplified().negated_inwards().cleaned(),
             ForAll(
                 x,
                 Or(Not(happy), happy)
             )
+        )
+        self.assertEqual(
+            And(And(And(And(And(happy))))).cleaned(),
+            happy
+        )
+        self.assertEqual(
+            And(And(And(And(And(happy, happy))))).cleaned(),
+            happy
+        )
+        self.assertEqual(
+            And(And(And(And(happy, And(happy))))).cleaned(),
+            happy
+        )
+        self.assertEqual(
+            And(happy, And(And(happy, And(And(happy))))).cleaned(),
+            happy
+        )
+        self.assertEqual(
+            And(happy, And(And(happy, And(Or(And(Or(Or(happy)))))))).cleaned(),
+            happy
+        )
+        angry = Predicate('Angry', x)
+        interested = Predicate('Interested', x)
+        self.assertEqual(
+            And(And(happy, angry), interested).cleaned(),
+            And(happy, angry, interested)
         )
 
     def test_free_variables(self):
@@ -207,6 +233,31 @@ class TestSentence(unittest.TestCase):
         self.assertEqual(happyx.free_variables(), {x})
         self.assertEqual(ForAll(x, happyx).free_variables(), set())
         self.assertEqual(ForAll(x, Or(happyx, happyy)).free_variables(), {y})
+
+    def test_skolemised(self):
+        x, y = Variable('x'), Variable('y')
+        happyx = Predicate('Happy', x)
+        happyy = Predicate('Happy', Function('F', y))
+
+        sent = Exists(x, happyx)
+        excpectedf = str(id(sent))
+        self.assertEqual(
+            sent.skolemised(),
+            Predicate('Happy', Function(excpectedf))
+        )
+        self.assertEqual(
+            len(sent.skolemised().unify(happyx)),
+            1
+        )
+        # skoled = ForAll(y, Or(happyy, sent)).skolemised()
+        self.assertEqual(
+            ForAll(y, Or(happyy, sent)).skolemised(),
+            Or(happyy, Predicate('Happy', Function(excpectedf, y)))
+        )
+        # self.assertEqual(
+        #     ForAll(x, Or(happyx, happyy)).free_variables(),
+        #     {y}
+        # )
 
     def test_unification(self):
         x = Variable('x')

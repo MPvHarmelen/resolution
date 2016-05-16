@@ -1,7 +1,4 @@
 import sentence
-# To do:
-#   - Think again about circular substitutions (it shouldn't be a problem,
-#     because both are variables, just arbitrarily choose one)
 
 
 class Substitution(dict):
